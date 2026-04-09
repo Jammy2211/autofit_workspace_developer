@@ -7,6 +7,12 @@ previously bundled with PyAutoFit. UltraNest must be installed separately:
 
     pip install ultranest
 
+NOTE: UltraNest's Cython extensions must be compiled against the same NumPy
+version you have installed. If you get a ``ValueError: numpy.dtype size
+changed`` error, reinstall UltraNest so it recompiles:
+
+    pip install --force-reinstall ultranest
+
 The search class in this directory (search.py) imports from autofit's base
 classes and can be used as a drop-in replacement.
 """
