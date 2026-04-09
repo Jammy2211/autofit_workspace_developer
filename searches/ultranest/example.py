@@ -1,0 +1,85 @@
+"""
+UltraNest Example
+-----------------
+
+This script demonstrates how to use the UltraNest nested sampler that was
+previously bundled with PyAutoFit. UltraNest must be installed separately:
+
+    pip install ultranest
+
+The search class in this directory (search.py) imports from autofit's base
+classes and can be used as a drop-in replacement.
+"""
+import numpy as np
+from os import path
+
+from searches.ultranest.search import UltraNest
+
+import autofit as af
+
+# --- Define a simple 1D Gaussian model ---
+
+class Gaussian:
+    def __init__(
+        self,
+        centre=30.0,
+        normalization=1.0,
+        sigma=5.0,
+    ):
+        self.centre = centre
+        self.normalization = normalization
+        self.sigma = sigma
+
+    def model_data_from(self, xvalues):
+        return np.multiply(
+            np.divide(self.normalization, self.sigma * np.sqrt(2.0 * np.pi)),
+            np.exp(-0.5 * np.square(np.divide(xvalues - self.centre, self.sigma))),
+        )
+
+
+# --- Generate some example data ---
+
+xvalues = np.arange(100)
+gaussian = Gaussian(centre=50.0, normalization=25.0, sigma=10.0)
+data = gaussian.model_data_from(xvalues=xvalues)
+noise_map = np.random.normal(0.0, 0.1, data.shape)
+data += noise_map
+noise_map = np.full(data.shape, 0.1)
+
+
+# --- Define the Analysis class ---
+
+class Analysis(af.Analysis):
+    def __init__(self, data, noise_map):
+        super().__init__()
+        self.data = data
+        self.noise_map = noise_map
+
+    def log_likelihood_function(self, instance):
+        model_data = instance.model_data_from(xvalues=xvalues)
+        residual_map = self.data - model_data
+        chi_squared_map = (residual_map / self.noise_map) ** 2.0
+        log_likelihood = -0.5 * sum(chi_squared_map)
+        return log_likelihood
+
+
+# --- Set up the model ---
+
+model = af.Model(Gaussian)
+model.centre = af.UniformPrior(lower_limit=0.0, upper_limit=100.0)
+model.normalization = af.UniformPrior(lower_limit=0.0, upper_limit=50.0)
+model.sigma = af.UniformPrior(lower_limit=0.0, upper_limit=50.0)
+
+# --- Run UltraNest ---
+
+search = UltraNest(
+    path_prefix="output",
+    name="ultranest_example",
+)
+
+analysis = Analysis(data=data, noise_map=noise_map)
+
+result = search.fit(model=model, analysis=analysis)
+
+print(f"Maximum likelihood instance: {result.max_log_likelihood_instance}")
+print(f"Log evidence: {result.samples.log_evidence}")
