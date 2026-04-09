@@ -2,7 +2,7 @@ from typing import Optional
 
 from autofit.database.sqlalchemy_ import sa
 from autofit.non_linear.initializer import AbstractInitializer
-from autofit.non_linear.search.mle.pyswarms.search.abstract import AbstractPySwarms
+from searches.pyswarms.abstract import AbstractPySwarms
 
 
 class PySwarmsGlobal(AbstractPySwarms):
