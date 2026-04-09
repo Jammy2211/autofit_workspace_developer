@@ -13,6 +13,13 @@ classes and can be used as a drop-in replacement.
 import numpy as np
 from os import path
 
+from autoconf import conf
+
+# Register the config directory shipped with this repo so that
+# UltraNest can find its YAML defaults.
+workspace_path = path.dirname(path.dirname(path.dirname(path.abspath(__file__))))
+conf.instance.push(new_path=path.join(workspace_path, "config"))
+
 from searches.ultranest.search import UltraNest
 
 import autofit as af
