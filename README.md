@@ -34,4 +34,4 @@ pip install pyswarms     # for PySwarms
 
 ## Extracted From
 
-PyAutoFit at commit on `main_build` branch, April 2026.
+PyAutoFit at commit on `main` branch, April 2026.
