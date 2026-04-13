@@ -21,12 +21,13 @@ class PySwarmsGlobal(AbstractPySwarms):
             initializer: Optional[AbstractInitializer] = None,
             iterations_per_full_update: int = None,
             iterations_per_quick_update: int = None,
-            number_of_cores: int = None,
+            number_of_cores: int = 1,
+            silence: bool = False,
             session: Optional[sa.orm.Session] = None,
             **kwargs
     ):
         """
-        A PySwarms Particle Swarm MLE global non-linear search.
+        A PySwarms Particle Swarm MLE global-best non-linear search.
 
         For a full description of PySwarms, checkout its Github and readthedocs webpages:
 
@@ -47,6 +48,8 @@ class PySwarmsGlobal(AbstractPySwarms):
             Generates the initialize samples of non-linear parameter space (see autofit.non_linear.initializer).
         number_of_cores
             The number of cores sampling is performed using a Python multiprocessing Pool instance.
+        silence
+            If True, the default print output of the non-linear search is silenced.
         """
 
         super().__init__(
@@ -57,6 +60,7 @@ class PySwarmsGlobal(AbstractPySwarms):
             iterations_per_quick_update=iterations_per_quick_update,
             iterations_per_full_update=iterations_per_full_update,
             number_of_cores=number_of_cores,
+            silence=silence,
             session=session,
             **kwargs
         )
@@ -64,24 +68,20 @@ class PySwarmsGlobal(AbstractPySwarms):
         self.logger.debug("Creating PySwarms Search")
 
     def search_internal_from(self, model, fitness, bounds, init_pos):
-        """Get the static Dynesty sampler which performs the non-linear search, passing it all associated input Dynesty
-        variables."""
+        """Get the PySwarms GlobalBestPSO sampler which performs the non-linear search."""
 
         import pyswarms
 
         options = {
-            "c1": self.config_dict_search["cognitive"],
-            "c2": self.config_dict_search["social"],
-            "w": self.config_dict_search["inertia"]
+            "c1": self.cognitive,
+            "c2": self.social,
+            "w": self.inertia,
         }
 
-        filter_list = ["cognitive", "social", "inertia"]
-        config_dict = {key: value for key, value in self.config_dict_search.items() if key not in filter_list}
-
         return pyswarms.global_best.GlobalBestPSO(
+            n_particles=self.n_particles,
             dimensions=model.prior_count,
             bounds=bounds,
             init_pos=init_pos,
             options=options,
-            **config_dict
         )

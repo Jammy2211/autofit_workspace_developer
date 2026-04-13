@@ -1,8 +1,7 @@
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 
-from autofit import exc
 from autofit.database.sqlalchemy_ import sa
 from autofit.mapper.prior_model.abstract import AbstractPriorModel
 from autofit.non_linear.fitness import Fitness
@@ -10,6 +9,7 @@ from autofit.non_linear.initializer import AbstractInitializer
 from autofit.non_linear.search.mle.abstract_mle import AbstractMLE
 from autofit.non_linear.samples.sample import Sample
 from autofit.non_linear.samples.samples import Samples
+from autofit.non_linear.test_mode import is_test_mode
 
 
 class FitnessPySwarms(Fitness):
@@ -18,13 +18,9 @@ class FitnessPySwarms(Fitness):
         Interfaces with any non-linear in order to fit a model to the data and return a log likelihood via
         an `Analysis` class.
 
-        The interface is described in full in the `__init__` docstring.
-
         `PySwarms` have a unique interface in that lists of parameters corresponding to multiple particles are
-        passed to the fitness function. A bespoke `__call__` method is therefore required to handle this.
-
-        The figure of merit is the log posterior multiplied by -2.0, which is the chi-squared value that is minimized
-        by the `PySwarms` non-linear search.
+        passed to the fitness function. A bespoke `__call__` method is therefore required to handle this,
+        delegating per-particle evaluation to ``call_wrap``.
 
         Parameters
         ----------
@@ -42,26 +38,10 @@ class FitnessPySwarms(Fitness):
         if isinstance(parameters[0], float):
             parameters = [parameters]
 
-        figure_of_merit_list = []
-
-        for params_of_particle in parameters:
-            try:
-                instance = self.model.instance_from_vector(vector=params_of_particle)
-                log_likelihood = self.analysis.log_likelihood_function(
-                    instance=instance
-                )
-                log_prior = self.model.log_prior_list_from_vector(
-                    vector=params_of_particle
-                )
-                log_posterior = log_likelihood + sum(log_prior)
-                figure_of_merit = -2.0 * log_posterior
-            except exc.FitException:
-                figure_of_merit = np.nan
-
-            if np.isnan(figure_of_merit):
-                figure_of_merit = -2.0 * self.resample_figure_of_merit
-
-            figure_of_merit_list.append(figure_of_merit)
+        figure_of_merit_list = [
+            self.call_wrap(params_of_particle)
+            for params_of_particle in parameters
+        ]
 
         return np.asarray(figure_of_merit_list)
 
@@ -72,10 +52,16 @@ class AbstractPySwarms(AbstractMLE):
         name: Optional[str] = None,
         path_prefix: Optional[str] = None,
         unique_tag: Optional[str] = None,
+        n_particles: int = 50,
+        cognitive: float = 0.5,
+        social: float = 0.3,
+        inertia: float = 0.9,
+        iters: int = 2000,
         initializer: Optional[AbstractInitializer] = None,
         iterations_per_quick_update: int = None,
         iterations_per_full_update: int = None,
-        number_of_cores: int = None,
+        number_of_cores: int = 1,
+        silence: bool = False,
         session: Optional[sa.orm.Session] = None,
         **kwargs
     ):
@@ -96,19 +82,25 @@ class AbstractPySwarms(AbstractMLE):
         unique_tag
             The name of a unique tag for this model-fit, which will be given a unique entry in the sqlite database
             and also acts as the folder after the path prefix and before the search name.
+        n_particles
+            The number of particles in the swarm.
+        cognitive
+            The cognitive parameter controlling how much a particle is influenced by its own best position.
+        social
+            The social parameter controlling how much a particle is influenced by the swarm's best position.
+        inertia
+            The inertia weight controlling the momentum of the particles.
+        iters
+            The total number of iterations the swarm performs.
         initializer
             Generates the initialize samples of non-linear parameter space (see autofit.non_linear.initializer).
         number_of_cores
             The number of cores sampling is performed using a Python multiprocessing Pool instance.
+        silence
+            If True, the default print output of the non-linear search is silenced.
         session
             An SQLalchemy session instance so the results of the model-fit are written to an SQLite database.
         """
-
-        number_of_cores = (
-            self._config("parallel", "number_of_cores")
-            if number_of_cores is None
-            else number_of_cores
-        )
 
         super().__init__(
             name=name,
@@ -118,9 +110,19 @@ class AbstractPySwarms(AbstractMLE):
             iterations_per_quick_update=iterations_per_quick_update,
             iterations_per_full_update=iterations_per_full_update,
             number_of_cores=number_of_cores,
+            silence=silence,
             session=session,
             **kwargs
         )
+
+        self.n_particles = n_particles
+        self.cognitive = cognitive
+        self.social = social
+        self.inertia = inertia
+        self.iters = iters
+
+        if is_test_mode():
+            self.apply_test_mode()
 
         self.logger.debug("Creating PySwarms Search")
 
@@ -146,6 +148,7 @@ class AbstractPySwarms(AbstractMLE):
         fitness = FitnessPySwarms(
             model=model,
             analysis=analysis,
+            paths=self.paths,
             fom_is_log_likelihood=False,
             resample_figure_of_merit=-np.inf,
             convert_to_chi_squared=True,
@@ -167,7 +170,7 @@ class AbstractPySwarms(AbstractMLE):
                 parameter_lists,
                 log_posterior_list,
             ) = self.initializer.samples_from_model(
-                total_points=self.config_dict_search["n_particles"],
+                total_points=self.n_particles,
                 model=model,
                 fitness=fitness,
                 paths=self.paths,
@@ -175,7 +178,7 @@ class AbstractPySwarms(AbstractMLE):
             )
 
             init_pos = np.zeros(
-                shape=(self.config_dict_search["n_particles"], model.prior_count)
+                shape=(self.n_particles, model.prior_count)
             )
 
             for index, parameters in enumerate(parameter_lists):
@@ -201,12 +204,12 @@ class AbstractPySwarms(AbstractMLE):
 
         bounds = (np.asarray(lower_bounds), np.asarray(upper_bounds))
 
-        while total_iterations < self.config_dict_run["iters"]:
+        while total_iterations < self.iters:
             search_internal = self.search_internal_from(
                 model=model, fitness=fitness, bounds=bounds, init_pos=init_pos
             )
 
-            iterations_remaining = self.config_dict_run["iters"] - total_iterations
+            iterations_remaining = self.iters - total_iterations
 
             iterations = min(self.iterations_per_full_update, iterations_remaining)
 
@@ -296,28 +299,8 @@ class AbstractPySwarms(AbstractMLE):
             samples_info=search_internal_dict,
         )
 
-    def config_dict_test_mode_from(self, config_dict: Dict) -> Dict:
-        """
-        Returns a configuration dictionary for test mode meaning that the sampler terminates as quickly as possible.
-
-        Entries which set the total number of samples of the sampler (e.g. maximum calls, maximum likelihood
-        evaluations) are reduced to low values meaning it terminates nearly immediately.
-
-        Parameters
-        ----------
-        config_dict
-            The original configuration dictionary for this sampler which includes entries controlling how fast the
-            sampler terminates.
-
-        Returns
-        -------
-        A configuration dictionary where settings which control the sampler's number of samples are reduced so it
-        terminates as quickly as possible.
-        """
-        return {
-            **config_dict,
-            "iters": 1,
-        }
+    def apply_test_mode(self):
+        self.iters = 1
 
     def search_internal_from(self, model, fitness, bounds, init_pos):
         raise NotImplementedError()
