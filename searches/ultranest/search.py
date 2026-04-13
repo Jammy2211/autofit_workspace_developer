@@ -8,6 +8,7 @@ from autofit.non_linear.search.nest import abstract_nest
 from autofit.non_linear.fitness import Fitness
 from autofit.non_linear.samples.sample import Sample
 from autofit.non_linear.samples.nest import SamplesNest
+from autofit.non_linear.test_mode import is_test_mode
 
 class UltraNest(abstract_nest.AbstractNest):
     __identifier_fields__ = (
@@ -26,9 +27,44 @@ class UltraNest(abstract_nest.AbstractNest):
             name: Optional[str] = None,
             path_prefix: Optional[str] = None,
             unique_tag: Optional[str] = None,
+            draw_multiple: bool = True,
+            ndraw_min: int = 128,
+            ndraw_max: int = 65536,
+            num_bootstraps: int = 30,
+            num_test_samples: int = 2,
+            resume: bool = True,
+            run_num: Optional[int] = None,
+            storage_backend: str = "hdf5",
+            vectorized: bool = False,
+            warmstart_max_tau: float = -1.0,
+            min_num_live_points: int = 400,
+            cluster_num_live_points: int = 40,
+            insertion_test_window: int = 10,
+            insertion_test_zscore_threshold: int = 2,
+            dlogz: float = 0.5,
+            dkl: float = 0.5,
+            frac_remain: float = 0.01,
+            lepsilon: float = 0.001,
+            min_ess: int = 400,
+            max_iters: Optional[int] = None,
+            max_ncalls: Optional[int] = None,
+            max_num_improvement_loops: float = -1.0,
+            log_interval: Optional[int] = None,
+            show_status: bool = True,
+            update_interval_ncall: Optional[int] = None,
+            update_interval_volume_fraction: float = 0.8,
+            viz_callback: str = "auto",
+            stepsampler_cls: Optional[str] = None,
+            nsteps: int = 25,
+            adaptive_nsteps: bool = False,
+            log: bool = False,
+            max_nsteps: int = 1000,
+            region_filter: bool = False,
+            scale: float = 1.0,
             iterations_per_quick_update: int = None,
             iterations_per_full_update: int = None,
-            number_of_cores: int = None,
+            number_of_cores: int = 1,
+            silence: bool = False,
             session: Optional[sa.orm.Session] = None,
             **kwargs
     ):
@@ -57,15 +93,11 @@ class UltraNest(abstract_nest.AbstractNest):
             The number of iterations performed between update (e.g. output latest model to hard-disk, visualization).
         number_of_cores
             The number of cores sampling is performed using a Python multiprocessing Pool instance.
+        silence
+            If True, the default print output of the non-linear search is silenced.
         session
             An SQLalchemy session instance so the results of the model-fit are written to an SQLite database.
         """
-
-        number_of_cores = (
-            self._config("parallel", "number_of_cores")
-            if number_of_cores is None
-            else number_of_cores
-        )
 
         super().__init__(
             name=name,
@@ -74,16 +106,90 @@ class UltraNest(abstract_nest.AbstractNest):
             iterations_per_quick_update=iterations_per_quick_update,
             iterations_per_full_update=iterations_per_full_update,
             number_of_cores=number_of_cores,
+            silence=silence,
             session=session,
             **kwargs
         )
 
-        for key, value in self.config_dict_stepsampler.items():
-            setattr(self, key, value)
-            if self.config_dict_stepsampler["stepsampler_cls"] is None:
-                self.nsteps = None
+        self.draw_multiple = draw_multiple
+        self.ndraw_min = ndraw_min
+        self.ndraw_max = ndraw_max
+        self.num_bootstraps = num_bootstraps
+        self.num_test_samples = num_test_samples
+        self.resume = resume
+        self.run_num = run_num
+        self.storage_backend = storage_backend
+        self.vectorized = vectorized
+        self.warmstart_max_tau = warmstart_max_tau
+
+        self.min_num_live_points = min_num_live_points
+        self.cluster_num_live_points = cluster_num_live_points
+        self.insertion_test_window = insertion_test_window
+        self.insertion_test_zscore_threshold = insertion_test_zscore_threshold
+        self.dlogz = dlogz
+        self.dkl = dkl
+        self.frac_remain = frac_remain
+        self.lepsilon = lepsilon
+        self.min_ess = min_ess
+        self.max_iters = max_iters
+        self.max_ncalls = max_ncalls
+        self.max_num_improvement_loops = max_num_improvement_loops
+        self.log_interval = log_interval
+        self.show_status = show_status
+        self.update_interval_ncall = update_interval_ncall
+        self.update_interval_volume_fraction = update_interval_volume_fraction
+        self.viz_callback = viz_callback
+
+        self.stepsampler_cls = stepsampler_cls
+        self.nsteps = nsteps if stepsampler_cls is not None else None
+        self.adaptive_nsteps = adaptive_nsteps
+        self.log_stepsampler = log
+        self.max_nsteps = max_nsteps
+        self.region_filter = region_filter
+        self.scale = scale
+
+        if is_test_mode():
+            self.apply_test_mode()
 
         self.logger.debug("Creating UltraNest Search")
+
+    def apply_test_mode(self):
+        self.max_iters = 1
+        self.max_ncalls = 1
+
+    @property
+    def search_kwargs(self):
+        """Build the kwargs dict passed to ``ReactiveNestedSampler``."""
+        return {
+            "draw_multiple": self.draw_multiple,
+            "ndraw_min": self.ndraw_min,
+            "ndraw_max": self.ndraw_max,
+            "num_bootstraps": self.num_bootstraps,
+            "num_test_samples": self.num_test_samples,
+            "resume": self.resume,
+            "run_num": self.run_num,
+            "storage_backend": self.storage_backend,
+            "vectorized": self.vectorized,
+            "warmstart_max_tau": self.warmstart_max_tau,
+        }
+
+    @property
+    def run_kwargs(self):
+        """Build the kwargs dict passed to ``sampler.run()``."""
+        return {
+            "min_num_live_points": self.min_num_live_points,
+            "cluster_num_live_points": self.cluster_num_live_points,
+            "insertion_test_window": self.insertion_test_window,
+            "insertion_test_zscore_threshold": self.insertion_test_zscore_threshold,
+            "frac_remain": self.frac_remain,
+            "min_ess": self.min_ess,
+            "max_iters": self.max_iters,
+            "max_num_improvement_loops": self.max_num_improvement_loops,
+            "log_interval": self.log_interval,
+            "show_status": self.show_status,
+            "update_interval_volume_fraction": self.update_interval_volume_fraction,
+            "viz_callback": self.viz_callback,
+        }
 
     def _fit(self, model: AbstractPriorModel, analysis):
         """
@@ -150,7 +256,7 @@ class UltraNest(abstract_nest.AbstractNest):
             loglike=fitness.call_wrap,
             transform=prior_transform,
             log_dir=log_dir,
-            **self.config_dict_search
+            **self.search_kwargs
         )
 
         search_internal.stepsampler = self.stepsampler
@@ -164,26 +270,19 @@ class UltraNest(abstract_nest.AbstractNest):
             except AttributeError:
                 total_iterations = 0
 
-            if self.config_dict_run["max_ncalls"] is not None:
-                iterations = self.config_dict_run["max_ncalls"]
+            if self.max_ncalls is not None:
+                iterations = self.max_ncalls
             else:
                 iterations = total_iterations + self.iterations_per_full_update
 
             if iterations > 0:
 
-                filter_list = ["max_ncalls", "dkl", "lepsilon"]
-                config_dict_run = {
-                    key: value for key, value
-                    in self.config_dict_run.items()
-                    if key
-                    not in filter_list
-                }
-
-                config_dict_run["update_interval_ncall"] = iterations
+                run_kwargs = self.run_kwargs
+                run_kwargs["update_interval_ncall"] = iterations
 
                 search_internal.run(
                     max_ncalls=iterations,
-                    **config_dict_run
+                    **run_kwargs
                 )
 
             self.paths.save_search_internal(
@@ -194,7 +293,7 @@ class UltraNest(abstract_nest.AbstractNest):
 
             if (
                     total_iterations == iterations_after_run
-                    or iterations_after_run == self.config_dict_run["max_ncalls"]
+                    or iterations_after_run == self.max_ncalls
             ):
                 finished = True
 
@@ -235,7 +334,7 @@ class UltraNest(abstract_nest.AbstractNest):
             "total_samples": search_internal["ncall"],
             "total_accepted_samples": len(search_internal["weighted_samples"]["logl"]),
             "time": self.timer.time if self.timer else None,
-            "number_live_points": self.config_dict_run["min_num_live_points"]
+            "number_live_points": self.min_num_live_points
         }
 
     def samples_via_internal_from(self, model: AbstractPriorModel, search_internal=None):
@@ -277,64 +376,33 @@ class UltraNest(abstract_nest.AbstractNest):
             samples_info=self.samples_info_from(search_internal=search_internal),
         )
 
-    def config_dict_test_mode_from(self, config_dict: Dict) -> Dict:
-        """
-        Returns a configuration dictionary for test mode meaning that the sampler terminates as quickly as possible.
-
-        Entries which set the total number of samples of the sampler (e.g. maximum calls, maximum likelihood
-        evaluations) are reduced to low values meaning it terminates nearly immediately.
-
-        Parameters
-        ----------
-        config_dict
-            The original configuration dictionary for this sampler which includes entries controlling how fast the
-            sampler terminates.
-
-        Returns
-        -------
-        A configuration dictionary where settings which control the sampler's number of samples are reduced so it
-        terminates as quickly as possible.
-        """
-        return {
-            **config_dict,
-            "max_iters": 1,
-            "max_ncalls": 1,
-        }
-
-    @property
-    def config_dict_stepsampler(self):
-
-        config_dict = {}
-
-        config_dict_step = self.config_type[self.__class__.__name__]["stepsampler"]
-
-        for key, value in config_dict_step.items():
-            try:
-                config_dict[key] = self.kwargs[key]
-            except KeyError:
-                config_dict[key] = value
-
-        return config_dict
-
     @property
     def stepsampler(self):
 
         from ultranest import stepsampler
 
-        config_dict_stepsampler = self.config_dict_stepsampler
-        stepsampler_cls = config_dict_stepsampler["stepsampler_cls"]
-        config_dict_stepsampler.pop("stepsampler_cls")
+        stepsampler_cls = self.stepsampler_cls
 
         if stepsampler_cls is None:
             return None
-        elif stepsampler_cls == "RegionMHSampler":
-            return stepsampler.RegionMHSampler(**config_dict_stepsampler)
+
+        stepsampler_kwargs = {
+            "nsteps": self.nsteps,
+            "adaptive_nsteps": self.adaptive_nsteps,
+            "log": self.log_stepsampler,
+            "max_nsteps": self.max_nsteps,
+            "region_filter": self.region_filter,
+            "scale": self.scale,
+        }
+
+        if stepsampler_cls == "RegionMHSampler":
+            return stepsampler.RegionMHSampler(**stepsampler_kwargs)
         elif stepsampler_cls == "AHARMSampler":
-            config_dict_stepsampler.pop("scale")
-            return stepsampler.AHARMSampler(**config_dict_stepsampler)
+            stepsampler_kwargs.pop("scale")
+            return stepsampler.AHARMSampler(**stepsampler_kwargs)
         elif stepsampler_cls == "CubeMHSampler":
-            return stepsampler.CubeMHSampler(**config_dict_stepsampler)
+            return stepsampler.CubeMHSampler(**stepsampler_kwargs)
         elif stepsampler_cls == "CubeSliceSampler":
-            return stepsampler.CubeSliceSampler(**config_dict_stepsampler)
+            return stepsampler.CubeSliceSampler(**stepsampler_kwargs)
         elif stepsampler_cls == "RegionSliceSampler":
-            return stepsampler.RegionSliceSampler(**config_dict_stepsampler)
+            return stepsampler.RegionSliceSampler(**stepsampler_kwargs)
