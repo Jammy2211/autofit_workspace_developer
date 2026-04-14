@@ -12,6 +12,8 @@ in a full autofit integration.
 Requirements:
     scipy (included with autofit)
 """
+import time
+
 import numpy as np
 import autofit as af
 
@@ -91,12 +93,14 @@ bounds = [(0.0, 100.0), (0.0, 50.0), (0.0, 50.0)]
 # Start near the true values.
 x0 = np.array([45.0, 20.0, 8.0])
 
+t_start = time.time()
 result = optimize.minimize(
     fun=chi_squared,
     x0=x0,
     method="L-BFGS-B",
     bounds=bounds,
 )
+t_elapsed = time.time() - t_start
 
 # --------------------------------------------------------------------------
 # Results
@@ -105,9 +109,13 @@ result = optimize.minimize(
 best_instance = model.instance_from_vector(vector=result.x)
 
 print("\n--- L-BFGS-B Results ---")
-print(f"Centre:        {best_instance.centre:.2f}  (true: 50.0)")
-print(f"Normalization: {best_instance.normalization:.2f}  (true: 25.0)")
-print(f"Sigma:         {best_instance.sigma:.2f}  (true: 10.0)")
+print(f"Best fit:  centre={best_instance.centre:.4f}  normalization={best_instance.normalization:.4f}  sigma={best_instance.sigma:.4f}")
+print(f"True:      centre=50.0000  normalization=25.0000  sigma=10.0000")
 print(f"Chi-squared:   {result.fun:.2f}")
 print(f"Converged:     {result.success}")
-print(f"Iterations:    {result.nit}")
+print(f"\n--- Performance ---")
+print(f"Wall time:          {t_elapsed:.4f} s")
+print(f"Function evals:     {result.nfev}")
+print(f"Gradient evals:     {result.njev}")
+print(f"Iterations:         {result.nit}")
+print(f"Time per eval:      {t_elapsed / result.nfev * 1e3:.3f} ms")

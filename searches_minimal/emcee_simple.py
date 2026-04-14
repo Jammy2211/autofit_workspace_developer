@@ -12,6 +12,8 @@ in a full autofit integration.
 Requirements:
     pip install emcee
 """
+import time
+
 import numpy as np
 import autofit as af
 
@@ -78,13 +80,18 @@ model.sigma = af.UniformPrior(lower_limit=0.0, upper_limit=50.0)
 import emcee
 
 
+n_likelihood_calls = 0
+
+
 def log_posterior(params):
     """Evaluate log posterior = log likelihood + log prior."""
+    global n_likelihood_calls
     log_prior = sum(model.log_prior_list_from_vector(vector=params))
 
     if not np.isfinite(log_prior):
         return -np.inf
 
+    n_likelihood_calls += 1
     instance = model.instance_from_vector(vector=params)
     log_like = analysis.log_likelihood_function(instance)
 
@@ -92,6 +99,7 @@ def log_posterior(params):
 
 
 nwalkers = 30
+nsteps = 2000
 ndim = model.prior_count
 
 # Initialize walkers near the true values with small scatter.
@@ -104,7 +112,9 @@ sampler = emcee.EnsembleSampler(
     log_prob_fn=log_posterior,
 )
 
-sampler.run_mcmc(walkers, nsteps=2000, progress=True)
+t_start = time.time()
+sampler.run_mcmc(walkers, nsteps=nsteps, progress=True)
+t_elapsed = time.time() - t_start
 
 # --------------------------------------------------------------------------
 # Results
@@ -118,16 +128,23 @@ best_idx = np.argmax(flat_log_prob)
 best_params = flat_samples[best_idx]
 best_instance = model.instance_from_vector(vector=best_params)
 
-print("\n--- Emcee Results ---")
-print(f"Centre:        {best_instance.centre:.2f}  (true: 50.0)")
-print(f"Normalization: {best_instance.normalization:.2f}  (true: 25.0)")
-print(f"Sigma:         {best_instance.sigma:.2f}  (true: 10.0)")
-
-# Median and 1-sigma from the chain.
 medians = np.median(flat_samples, axis=0)
 stds = np.std(flat_samples, axis=0)
 labels = ["centre", "normalization", "sigma"]
 
+print("\n--- Emcee Results ---")
+print(f"Best fit:  centre={best_instance.centre:.4f}  normalization={best_instance.normalization:.4f}  sigma={best_instance.sigma:.4f}")
+print(f"True:      centre=50.0000  normalization=25.0000  sigma=10.0000")
+
 print("\nPosterior summary (median +/- 1 sigma):")
 for label, med, std in zip(labels, medians, stds):
-    print(f"  {label:15s} = {med:.2f} +/- {std:.2f}")
+    print(f"  {label:15s} = {med:.4f} +/- {std:.4f}")
+
+total_samples = nwalkers * nsteps
+
+print(f"\n--- Performance ---")
+print(f"Wall time:          {t_elapsed:.2f} s")
+print(f"Likelihood calls:   {n_likelihood_calls}")
+print(f"Total samples:      {total_samples}  ({nwalkers} walkers x {nsteps} steps)")
+print(f"Time per call:      {t_elapsed / n_likelihood_calls * 1e3:.3f} ms")
+print(f"Effective samples:  {len(flat_samples)}  (after burn-in & thinning)")

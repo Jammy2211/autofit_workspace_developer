@@ -12,6 +12,8 @@ in a full autofit integration.
 Requirements:
     pip install nautilus-sampler
 """
+import time
+
 import numpy as np
 import autofit as af
 
@@ -83,8 +85,13 @@ def prior_transform(cube):
     return np.array(model.vector_from_unit_vector(cube))
 
 
+n_likelihood_calls = 0
+
+
 def log_likelihood(params):
     """Evaluate log likelihood for a physical parameter vector."""
+    global n_likelihood_calls
+    n_likelihood_calls += 1
     instance = model.instance_from_vector(vector=params)
     return analysis.log_likelihood_function(instance)
 
@@ -96,7 +103,9 @@ sampler = Sampler(
     n_live=200,
 )
 
+t_start = time.time()
 sampler.run(verbose=True)
+t_elapsed = time.time() - t_start
 
 # --------------------------------------------------------------------------
 # Results
@@ -109,7 +118,11 @@ best_params = points[best_idx]
 best_instance = model.instance_from_vector(vector=best_params)
 
 print("\n--- Nautilus Results ---")
-print(f"Centre:        {best_instance.centre:.2f}  (true: 50.0)")
-print(f"Normalization: {best_instance.normalization:.2f}  (true: 25.0)")
-print(f"Sigma:         {best_instance.sigma:.2f}  (true: 10.0)")
+print(f"Best fit:  centre={best_instance.centre:.4f}  normalization={best_instance.normalization:.4f}  sigma={best_instance.sigma:.4f}")
+print(f"True:      centre=50.0000  normalization=25.0000  sigma=10.0000")
 print(f"Log evidence:  {sampler.log_z:.2f}")
+print(f"\n--- Performance ---")
+print(f"Wall time:          {t_elapsed:.2f} s")
+print(f"Likelihood calls:   {n_likelihood_calls}")
+print(f"Time per call:      {t_elapsed / n_likelihood_calls * 1e3:.3f} ms")
+print(f"Effective samples:  {len(points)}")
