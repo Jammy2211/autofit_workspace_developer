@@ -1,0 +1,12 @@
+
+# Generated artifacts — never check in
+image.fits
+path/
+scripts/path/
+scripts/scripts/
+output_path/
+root.log
+*.log
+__pycache__/
+*.pyc
+.codex/
