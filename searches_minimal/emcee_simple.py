@@ -27,10 +27,10 @@ class Gaussian:
         self.normalization = normalization
         self.sigma = sigma
 
-    def model_data_from(self, xvalues):
-        return np.multiply(
-            np.divide(self.normalization, self.sigma * np.sqrt(2.0 * np.pi)),
-            np.exp(-0.5 * np.square(np.divide(xvalues - self.centre, self.sigma))),
+    def model_data_from(self, xvalues, xp=np):
+        return xp.multiply(
+            xp.divide(self.normalization, self.sigma * xp.sqrt(2.0 * xp.pi)),
+            xp.exp(-0.5 * xp.square(xp.divide(xvalues - self.centre, self.sigma))),
         )
 
 
