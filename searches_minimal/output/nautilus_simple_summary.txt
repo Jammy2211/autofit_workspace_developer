@@ -1,0 +1,14 @@
+--- Nautilus (NumPy) Results ---
+Best fit:        centre=50.0344  normalization=25.0660  sigma=9.9976
+True:            centre=50.0000  normalization=25.0000  sigma=10.0000
+Max log L:       -38.1717
+Log evidence:    -57.4572
+
+--- Performance ---
+Wall time:           20.95 s     (no separate JIT compilation)
+Sampling time:       20.95 s     (Nautilus does not split warmup)
+Likelihood evals:    16100
+Time per eval:       1.301 ms
+ESS:                 10047.6
+Posterior samples:   16100
+n_live / n_dim:      200 / 3

@@ -14,6 +14,7 @@ Requirements:
     (pulls handley-lab/blackjax fork with nested sampling support)
 """
 import time
+from pathlib import Path
 
 import numpy as np
 import jax
@@ -42,6 +43,8 @@ class Gaussian:
 # --------------------------------------------------------------------------
 # Data
 # --------------------------------------------------------------------------
+
+np.random.seed(1)
 
 xvalues = np.arange(100)
 true_gaussian = Gaussian(centre=50.0, normalization=25.0, sigma=10.0)
@@ -159,18 +162,30 @@ log_likelihoods = final_state.particles.loglikelihood
 best_idx = jnp.argmax(log_likelihoods)
 best_params = positions[best_idx]
 best_instance = model.instance_from_vector(vector=np.asarray(best_params).tolist())
+max_logl = float(jnp.max(log_likelihoods))
 
-print(f"\n--- NSS (autofit) Results ---")
-print(f"Best fit:  centre={best_instance.centre:.4f}  normalization={best_instance.normalization:.4f}  sigma={best_instance.sigma:.4f}")
-print(f"True:      centre=50.0000  normalization=25.0000  sigma=10.0000")
-print(f"Log evidence:  {results.logZs.mean():.2f}")
+summary = f"""\
+--- NSS (autofit) Results ---
+Best fit:        centre={best_instance.centre:.4f}  normalization={best_instance.normalization:.4f}  sigma={best_instance.sigma:.4f}
+True:            centre=50.0000  normalization=25.0000  sigma=10.0000
+Max log L:       {max_logl:.4f}
+Log evidence:    {float(results.logZs.mean()):.4f}
 
-print(f"\n--- Performance ---")
-print(f"Wall time:          {t_elapsed:.2f} s")
-print(f"  (includes JIT compilation)")
-print(f"Sampling time:      {results.time:.2f} s")
-print(f"  (excludes JIT warmup)")
-print(f"Likelihood calls:   {n_likelihood_calls}")
-print(f"Time per call:      {t_elapsed / n_likelihood_calls * 1e3:.3f} ms")
-print(f"ESS:                {results.ess}")
-print(f"Total samples:      {len(positions)}")
+--- Performance ---
+Wall time:           {t_elapsed:.2f} s     (includes JIT compilation / warmup)
+Sampling time:       {float(results.time):.2f} s     (excludes JIT warmup)
+Likelihood evals:    {n_likelihood_calls}
+Time per eval:       {t_elapsed / max(n_likelihood_calls, 1) * 1e3:.3f} ms
+ESS:                 {float(results.ess):.1f}
+Posterior samples:   {len(positions)}
+n_live / n_dim:      {n_live} / {model.prior_count}
+"""
+
+print()
+print(summary)
+
+output_dir = Path(__file__).parent / "output"
+output_dir.mkdir(parents=True, exist_ok=True)
+summary_path = output_dir / f"{Path(__file__).stem}_summary.txt"
+summary_path.write_text(summary)
+print(f"Summary written to: {summary_path}")
