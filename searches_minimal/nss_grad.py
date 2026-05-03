@@ -15,6 +15,7 @@ Requirements:
     (pulls handley-lab/blackjax fork with nested sampling support)
 """
 import time
+from pathlib import Path
 
 import jax
 import jax.numpy as jnp
@@ -125,28 +126,44 @@ best_params = jax.tree_util.tree_map(lambda x: x[best_idx], smc_state.particles)
 all_logl = jax.vmap(log_likelihood)(posterior_samples)
 ml_idx = jnp.argmax(all_logl)
 ml_params = posterior_samples[ml_idx]
+max_logl = float(jnp.max(all_logl))
+n_evals = int(results.evals)
 
 # Posterior summary from resampled particles.
 medians = jnp.median(posterior_samples, axis=0)
 stds = jnp.std(posterior_samples, axis=0)
 labels = ["centre", "normalization", "sigma"]
 
-print(f"\n--- NSS (HMC + jax.grad) Results ---")
-print(f"Best fit:  centre={ml_params[0]:.4f}  normalization={ml_params[1]:.4f}  sigma={ml_params[2]:.4f}")
-print(f"True:      centre=50.0000  normalization=25.0000  sigma=10.0000")
-print(f"Log evidence:  {results.logZs.mean():.2f}")
+posterior_summary_lines = "\n".join(
+    f"  {label:15s} = {float(medians[i]):.4f} +/- {float(stds[i]):.4f}"
+    for i, label in enumerate(labels)
+)
 
-print(f"\nPosterior summary (median +/- 1 sigma):")
-for i, label in enumerate(labels):
-    print(f"  {label:15s} = {medians[i]:.4f} +/- {stds[i]:.4f}")
+summary = f"""\
+--- NSS (HMC + jax.grad) Results ---
+Best fit:        centre={ml_params[0]:.4f}  normalization={ml_params[1]:.4f}  sigma={ml_params[2]:.4f}
+True:            centre=50.0000  normalization=25.0000  sigma=10.0000
+Max log L:       {max_logl:.4f}
+Log evidence:    {float(results.logZs.mean()):.4f}
 
-print(f"\n--- Performance ---")
-print(f"Wall time:          {t_elapsed:.2f} s")
-print(f"  (includes JIT compilation + HMC warmup)")
-print(f"Sampling time:      {results.time:.2f} s")
-print(f"  (excludes JIT warmup)")
-print(f"Gradient evals:     {int(results.evals)}")
-print(f"  (each = likelihood + gradient via jax.grad)")
-print(f"Time per eval:      {results.time / max(int(results.evals), 1) * 1e3:.3f} ms")
-print(f"ESS:                {results.ess:.0f}")
-print(f"Posterior samples:  {len(posterior_samples)}")
+Posterior summary (median +/- 1 sigma):
+{posterior_summary_lines}
+
+--- Performance ---
+Wall time:           {t_elapsed:.2f} s     (includes JIT compilation + HMC warmup)
+Sampling time:       {float(results.time):.2f} s     (excludes JIT warmup)
+Likelihood evals:    {n_evals}     (each = likelihood + gradient via jax.grad)
+Time per eval:       {float(results.time) / max(n_evals, 1) * 1e3:.3f} ms
+ESS:                 {float(results.ess):.1f}
+Posterior samples:   {len(posterior_samples)}
+n_live / n_dim:      {n_live} / {n_dim}
+"""
+
+print()
+print(summary)
+
+output_dir = Path(__file__).parent / "output"
+output_dir.mkdir(parents=True, exist_ok=True)
+summary_path = output_dir / f"{Path(__file__).stem}_summary.txt"
+summary_path.write_text(summary)
+print(f"Summary written to: {summary_path}")

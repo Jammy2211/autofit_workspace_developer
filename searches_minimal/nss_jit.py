@@ -14,6 +14,7 @@ Requirements:
     (pulls handley-lab/blackjax fork with nested sampling support)
 """
 import time
+from pathlib import Path
 
 import jax
 import jax.numpy as jnp
@@ -108,6 +109,8 @@ t_elapsed = time.time() - t_start
 logw = log_weights(rng_key, final_state)
 positions = final_state.particles.position
 log_likelihoods = final_state.particles.loglikelihood
+n_evals = int(results.evals)
+max_logl = float(jnp.max(log_likelihoods))
 
 # Best fit = highest likelihood sample.
 best_idx = jnp.argmax(log_likelihoods)
@@ -118,17 +121,28 @@ w = jnp.exp(logw.mean(axis=-1))
 w = w / w.sum()
 weighted_mean = jnp.sum(positions * w[:, None], axis=0)
 
-print(f"\n--- NSS (JAX JIT) Results ---")
-print(f"Best fit:  centre={best_params[0]:.4f}  normalization={best_params[1]:.4f}  sigma={best_params[2]:.4f}")
-print(f"True:      centre=50.0000  normalization=25.0000  sigma=10.0000")
-print(f"Log evidence:  {results.logZs.mean():.2f}")
+summary = f"""\
+--- NSS (JAX JIT) Results ---
+Best fit:        centre={best_params[0]:.4f}  normalization={best_params[1]:.4f}  sigma={best_params[2]:.4f}
+True:            centre=50.0000  normalization=25.0000  sigma=10.0000
+Max log L:       {max_logl:.4f}
+Log evidence:    {float(results.logZs.mean()):.4f}
 
-print(f"\n--- Performance ---")
-print(f"Wall time:          {t_elapsed:.2f} s")
-print(f"  (includes JIT compilation)")
-print(f"Sampling time:      {results.time:.2f} s")
-print(f"  (excludes JIT warmup)")
-print(f"Likelihood evals:   {int(results.evals)}")
-print(f"Time per eval:      {results.time / int(results.evals) * 1e3:.3f} ms")
-print(f"ESS:                {results.ess}")
-print(f"Total samples:      {len(positions)}")
+--- Performance ---
+Wall time:           {t_elapsed:.2f} s     (includes JIT compilation / warmup)
+Sampling time:       {float(results.time):.2f} s     (excludes JIT warmup)
+Likelihood evals:    {n_evals}
+Time per eval:       {float(results.time) / max(n_evals, 1) * 1e3:.3f} ms
+ESS:                 {float(results.ess):.1f}
+Posterior samples:   {len(positions)}
+n_live / n_dim:      {n_live} / {n_dim}
+"""
+
+print()
+print(summary)
+
+output_dir = Path(__file__).parent / "output"
+output_dir.mkdir(parents=True, exist_ok=True)
+summary_path = output_dir / f"{Path(__file__).stem}_summary.txt"
+summary_path.write_text(summary)
+print(f"Summary written to: {summary_path}")

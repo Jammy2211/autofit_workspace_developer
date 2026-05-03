@@ -13,6 +13,7 @@ Requirements:
     pip install nautilus-sampler
 """
 import time
+from pathlib import Path
 
 import numpy as np
 import autofit as af
@@ -37,6 +38,8 @@ class Gaussian:
 # --------------------------------------------------------------------------
 # Data
 # --------------------------------------------------------------------------
+
+np.random.seed(1)
 
 xvalues = np.arange(100)
 true_gaussian = Gaussian(centre=50.0, normalization=25.0, sigma=10.0)
@@ -96,11 +99,14 @@ def log_likelihood(params):
     return analysis.log_likelihood_function(instance)
 
 
+n_live = 200
+n_dim = model.prior_count
+
 sampler = Sampler(
     prior=prior_transform,
     likelihood=log_likelihood,
-    n_dim=model.prior_count,
-    n_live=200,
+    n_dim=n_dim,
+    n_live=n_live,
 )
 
 t_start = time.time()
@@ -116,13 +122,30 @@ points, log_w, log_l = sampler.posterior()
 best_idx = np.argmax(log_l)
 best_params = points[best_idx]
 best_instance = model.instance_from_vector(vector=best_params)
+max_logl = float(np.max(log_l))
 
-print("\n--- Nautilus Results ---")
-print(f"Best fit:  centre={best_instance.centre:.4f}  normalization={best_instance.normalization:.4f}  sigma={best_instance.sigma:.4f}")
-print(f"True:      centre=50.0000  normalization=25.0000  sigma=10.0000")
-print(f"Log evidence:  {sampler.log_z:.2f}")
-print(f"\n--- Performance ---")
-print(f"Wall time:          {t_elapsed:.2f} s")
-print(f"Likelihood calls:   {n_likelihood_calls}")
-print(f"Time per call:      {t_elapsed / n_likelihood_calls * 1e3:.3f} ms")
-print(f"Effective samples:  {len(points)}")
+summary = f"""\
+--- Nautilus (NumPy) Results ---
+Best fit:        centre={best_instance.centre:.4f}  normalization={best_instance.normalization:.4f}  sigma={best_instance.sigma:.4f}
+True:            centre=50.0000  normalization=25.0000  sigma=10.0000
+Max log L:       {max_logl:.4f}
+Log evidence:    {float(sampler.log_z):.4f}
+
+--- Performance ---
+Wall time:           {t_elapsed:.2f} s     (no separate JIT compilation)
+Sampling time:       {t_elapsed:.2f} s     (Nautilus does not split warmup)
+Likelihood evals:    {n_likelihood_calls}
+Time per eval:       {t_elapsed / max(n_likelihood_calls, 1) * 1e3:.3f} ms
+ESS:                 {float(sampler.n_eff):.1f}
+Posterior samples:   {len(points)}
+n_live / n_dim:      {n_live} / {n_dim}
+"""
+
+print()
+print(summary)
+
+output_dir = Path(__file__).parent / "output"
+output_dir.mkdir(parents=True, exist_ok=True)
+summary_path = output_dir / f"{Path(__file__).stem}_summary.txt"
+summary_path.write_text(summary)
+print(f"Summary written to: {summary_path}")

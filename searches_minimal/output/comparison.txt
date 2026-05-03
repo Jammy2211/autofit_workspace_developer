@@ -1,0 +1,52 @@
+Sampler comparison (autofit_workspace_developer/searches_minimal)
+==================================================================
+
+Problem: 1D Gaussian fit (centre=50, normalization=25, sigma=10).
+Data:    100 points, noise sigma=0.01, np.random.seed(1) for all five.
+
+| Sampler                 | Wall (s) | Sampling (s) | Evals    | Time/eval (ms) | ESS     | log Z   | Max log L | Posterior | n_live |
+|-------------------------|---------:|-------------:|---------:|---------------:|--------:|--------:|----------:|----------:|-------:|
+| nss_simple  (callback)  |    53.49 |        47.44 |   49,860 |          1.073 |     173 |  -73.01 |    -38.21 |     1,670 |     50 |
+| nss_jit     (pure JAX)  |    12.67 |         6.23 |  279,441 |          0.022 |   2,320 |  -57.60 |    -38.17 |    11,695 |    500 |
+| nss_grad    (HMC+grad)  |     5.20 |         1.97 |  938,500 |          0.002 |     655 |  -58.10 |    -38.67 |     5,000 |    500 |
+| nautilus_simple (NumPy) |    20.95 |        20.95 |   16,100 |          1.301 |  10,048 |  -57.46 |    -38.17 |    16,100 |    200 |
+| nautilus_jax    (JIT)   |    20.78 |        20.78 |   16,300 |          1.275 |  10,003 |  -57.47 |    -38.17 |    16,300 |    200 |
+
+Notes
+-----
+
+- All five recover the true parameters; max log L converges to ~-38.2 across
+  the four converged samplers. nss_simple's lower n_live=50 + termination=-1
+  bails out early, which is why its log Z is ~15 nats above the others (the
+  best-fit point is fine, the evidence integral is not).
+
+- Reference log Z is ~-57.5: nautilus_simple, nautilus_jax, nss_jit, and
+  (within ~0.5 nat) nss_grad all agree.
+
+- Wall-time ranking: nss_grad (5.2 s) < nss_jit (12.7 s) < nautilus_jax
+  (20.8 s) ~ nautilus_simple (21.0 s) << nss_simple (53.5 s).
+
+- Per-call cost:
+    - Pure JAX JIT  ~0.02 ms (nss_jit) -- batched, no Python ↔ JAX boundary.
+    - JAX grad     ~0.002 ms (nss_grad) -- HMC batches many proposals per step.
+    - JAX via Python callback (nautilus_jax) ~1.3 ms -- dominated by Python
+      interop, not by the kernel itself.
+    - NumPy through autofit Analysis (nss_simple, nautilus_simple) ~1.1 ms.
+
+- ESS / wall-second (sampling efficiency):
+    nautilus_jax:    481
+    nautilus_simple: 479
+    nss_jit:         183
+    nss_grad:        126
+    nss_simple:        3
+
+- Headline finding: on this 1D problem, **Nautilus's gain from a JAX
+  likelihood is negligible** -- 0.17 s saved over NumPy -- because the
+  per-call Python-callback overhead dominates a likelihood that is already
+  cheap. NSS's gain from pure JAX is large (53.5 s -> 12.7 s) because it
+  removes the callback boundary entirely. NSS-with-grad is the fastest
+  configuration here.
+
+- The Nautilus runs return ~5x more posterior samples for a similar wall
+  time, which matters more when downstream uses need a dense posterior
+  rather than a fast point estimate.
