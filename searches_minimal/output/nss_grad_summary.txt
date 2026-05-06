@@ -10,10 +10,15 @@ Posterior summary (median +/- 1 sigma):
   sigma           = 10.0153 +/- 0.0344
 
 --- Performance ---
-Wall time:           5.20 s     (includes JIT compilation + HMC warmup)
-Sampling time:       1.97 s     (excludes JIT warmup)
+Wall time:           9.43 s     (includes JIT compilation + HMC warmup)
+Sampling time:       4.00 s     (excludes JIT warmup)
 Likelihood evals:    938500     (each = likelihood + gradient via jax.grad)
-Time per eval:       0.002 ms
+Time per eval:       0.004 ms
 ESS:                 655.2
 Posterior samples:   5000
 n_live / n_dim:      500 / 3
+
+--- Convergence ---
+Converged:           yes (HMC SMC reaches lambda=1.0 by target_ess=0.9)
+Evals to ML:         n/a (pure JAX path; intermediate evals not exposed without host callback)
+Time to ML:          n/a

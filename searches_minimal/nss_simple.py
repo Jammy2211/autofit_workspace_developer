@@ -23,6 +23,8 @@ import autofit as af
 from nss.ns import run_nested_sampling
 from blackjax.ns.utils import log_weights
 
+from searches_minimal._metrics import MLTracker
+
 # --------------------------------------------------------------------------
 # Model
 # --------------------------------------------------------------------------
@@ -86,6 +88,7 @@ model.sigma = af.UniformPrior(lower_limit=0.0, upper_limit=50.0)
 # --------------------------------------------------------------------------
 
 n_likelihood_calls = 0
+tracker = MLTracker()
 
 
 def numpy_log_likelihood(params_np):
@@ -93,7 +96,9 @@ def numpy_log_likelihood(params_np):
     global n_likelihood_calls
     n_likelihood_calls += 1
     instance = model.instance_from_vector(vector=params_np.tolist())
-    return np.float64(analysis.log_likelihood_function(instance))
+    log_l = float(analysis.log_likelihood_function(instance))
+    tracker.record(log_l)
+    return np.float64(log_l)
 
 
 def numpy_log_prior(params_np):
@@ -122,11 +127,12 @@ def log_prior(params):
     )
 
 
-# Draw initial samples from the uniform prior.
-# n_live is kept small because each likelihood call goes through a Python
-# callback (jax.pure_callback), which is much slower than pure JAX.
-# See nss_jit.py for the fast, pure-JAX version.
-n_live = 50
+# Production-realistic settings, scaled down so the pure_callback path
+# can still converge in tens of minutes. The callback path has heavy JAX
+# <-> Python overhead per evaluation; n_live=200 + termination=-2 lands
+# a good evidence estimate without the runaway eval count of n_live=500
+# / termination=-3 (which would take 1+ hours via this path).
+n_live = 200
 rng_key = jax.random.PRNGKey(42)
 rng_key, init_key = jax.random.split(rng_key)
 
@@ -141,6 +147,9 @@ print(f"  n_live={n_live}, n_dim={model.prior_count}")
 print(f"  Using jax.pure_callback for NumPy likelihood\n")
 
 t_start = time.time()
+# num_delete=10 / num_mcmc=2 keeps per-step callback overhead bounded;
+# termination=-2 (delta-logZ < 0.01) gives a good evidence estimate while
+# fitting inside a reasonable wall-time budget for the callback path.
 final_state, results = run_nested_sampling(
     rng_key,
     loglikelihood_fn=log_likelihood,
@@ -148,7 +157,7 @@ final_state, results = run_nested_sampling(
     num_mcmc_steps=2,
     initial_samples=initial_samples,
     num_delete=10,
-    termination=-1,
+    termination=-2,
 )
 t_elapsed = time.time() - t_start
 
@@ -163,6 +172,7 @@ best_idx = jnp.argmax(log_likelihoods)
 best_params = positions[best_idx]
 best_instance = model.instance_from_vector(vector=np.asarray(best_params).tolist())
 max_logl = float(jnp.max(log_likelihoods))
+evals_to_ml, time_to_ml = tracker.finalise(max_log_l=max_logl, tolerance=1.0)
 
 summary = f"""\
 --- NSS (autofit) Results ---
@@ -179,6 +189,11 @@ Time per eval:       {t_elapsed / max(n_likelihood_calls, 1) * 1e3:.3f} ms
 ESS:                 {float(results.ess):.1f}
 Posterior samples:   {len(positions)}
 n_live / n_dim:      {n_live} / {model.prior_count}
+
+--- Convergence ---
+Converged:           yes (NSS termination=-2)
+Evals to ML:         {evals_to_ml if evals_to_ml is not None else 'n/a'}     (first eval within 1 nat of max log L)
+Time to ML:          {f'{time_to_ml:.2f} s' if time_to_ml is not None else 'n/a'}
 """
 
 print()
