@@ -1,0 +1,27 @@
+--- NUTS (BlackJAX, jax.grad + JIT) Results ---
+Best fit:        centre=50.0359  normalization=25.0620  sigma=9.9984
+True:            centre=50.0000  normalization=25.0000  sigma=10.0000
+Max log L:       -38.1765
+Log evidence:    n/a (NUTS does not estimate Z)
+
+Posterior summary (median +/- 1 sigma):
+  centre          = 50.0333 +/- 0.0334
+  normalization   = 25.0650 +/- 0.0732
+  sigma           = 9.9987 +/- 0.0342
+
+--- Performance ---
+Wall time:           1.83 s     (warmup + sampling)
+Sampling time:       0.78 s     (post-warmup, JIT'd scan)
+Warmup time:         1.05 s     (window adaptation: step size + mass matrix)
+JIT compile time:    0.28 s     (one-shot warm-up of log_density)
+Likelihood evals:    10762     (sum of integration steps over the chain)
+Time per eval:       0.073 ms
+ESS (min over dims): 1215.8
+Posterior samples:   2000
+Mean acceptance:     0.923
+Divergences:         0     (post-warmup; non-zero suggests step size too large)
+
+--- Convergence ---
+Converged:           yes (NUTS targets the posterior; no divergences ≈ healthy chain)
+Evals to ML:         1     (sample index, not raw eval — see MLTracker.from_log_l_history)
+Time to ML:          0.00 s
