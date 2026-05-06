@@ -1,15 +1,20 @@
 --- Nautilus (JAX JIT) Results ---
-Best fit:        centre=50.0343  normalization=25.0702  sigma=10.0002
+Best fit:        centre=50.0335  normalization=25.0658  sigma=9.9990
 True:            centre=50.0000  normalization=25.0000  sigma=10.0000
-Max log L:       -38.1722
-Log evidence:    -57.4683
+Max log L:       -38.1719
+Log evidence:    -57.4499
 
 --- Performance ---
-Wall time:           20.78 s     (excludes JIT compilation, run ahead of time)
-Sampling time:       20.78 s     (Nautilus does not split warmup)
-JIT compile time:    0.06 s     (one-shot warm-up before sampling)
+Wall time:           32.20 s     (excludes JIT compilation, run ahead of time)
+Sampling time:       32.20 s     (Nautilus does not split warmup)
+JIT compile time:    0.09 s     (one-shot warm-up before sampling)
 Likelihood evals:    16300
-Time per eval:       1.275 ms
-ESS:                 10003.0
+Time per eval:       1.976 ms
+ESS:                 10054.3
 Posterior samples:   16300
 n_live / n_dim:      200 / 3
+
+--- Convergence ---
+Converged:           yes (Nautilus default n_eff / f_live)
+Evals to ML:         4597     (first eval within 1 nat of max log L)
+Time to ML:          16.46 s

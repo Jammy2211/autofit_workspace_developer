@@ -157,6 +157,11 @@ Time per eval:       {float(results.time) / max(n_evals, 1) * 1e3:.3f} ms
 ESS:                 {float(results.ess):.1f}
 Posterior samples:   {len(posterior_samples)}
 n_live / n_dim:      {n_live} / {n_dim}
+
+--- Convergence ---
+Converged:           yes (HMC SMC reaches lambda=1.0 by target_ess={0.9})
+Evals to ML:         n/a (pure JAX path; intermediate evals not exposed without host callback)
+Time to ML:          n/a
 """
 
 print()

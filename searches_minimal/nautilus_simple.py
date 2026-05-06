@@ -18,6 +18,8 @@ from pathlib import Path
 import numpy as np
 import autofit as af
 
+from searches_minimal._metrics import MLTracker
+
 # --------------------------------------------------------------------------
 # Model
 # --------------------------------------------------------------------------
@@ -89,6 +91,7 @@ def prior_transform(cube):
 
 
 n_likelihood_calls = 0
+tracker = MLTracker()
 
 
 def log_likelihood(params):
@@ -96,7 +99,9 @@ def log_likelihood(params):
     global n_likelihood_calls
     n_likelihood_calls += 1
     instance = model.instance_from_vector(vector=params)
-    return analysis.log_likelihood_function(instance)
+    log_l = float(analysis.log_likelihood_function(instance))
+    tracker.record(log_l)
+    return log_l
 
 
 n_live = 200
@@ -123,6 +128,7 @@ best_idx = np.argmax(log_l)
 best_params = points[best_idx]
 best_instance = model.instance_from_vector(vector=best_params)
 max_logl = float(np.max(log_l))
+evals_to_ml, time_to_ml = tracker.finalise(max_log_l=max_logl, tolerance=1.0)
 
 summary = f"""\
 --- Nautilus (NumPy) Results ---
@@ -139,6 +145,11 @@ Time per eval:       {t_elapsed / max(n_likelihood_calls, 1) * 1e3:.3f} ms
 ESS:                 {float(sampler.n_eff):.1f}
 Posterior samples:   {len(points)}
 n_live / n_dim:      {n_live} / {n_dim}
+
+--- Convergence ---
+Converged:           yes (Nautilus default n_eff / f_live)
+Evals to ML:         {evals_to_ml if evals_to_ml is not None else 'n/a'}     (first eval within 1 nat of max log L)
+Time to ML:          {f'{time_to_ml:.2f} s' if time_to_ml is not None else 'n/a'}
 """
 
 print()
