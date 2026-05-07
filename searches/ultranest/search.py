@@ -238,7 +238,7 @@ class UltraNest(abstract_nest.AbstractNest):
         log_dir = self.paths.search_internal_path
 
         try:
-            checkpoint_exists = os.path.exists(log_dir / "chains")
+            checkpoint_exists = Path(log_dir / "chains").exists()
         except TypeError:
             checkpoint_exists = False
 

@@ -63,7 +63,6 @@ In this tutorial, we will:
 
 # from autoconf import setup_notebook; setup_notebook()
 
-from os import path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
@@ -109,7 +108,7 @@ First, let's load and plot Hubble Space Telescope imaging data of a galaxy. This
 The noise-map has a few strange off-centre features which are an artefact of the telescope. Don't worry about these
 features.
 """
-dataset_path = path.join("dataset", "howtofit", "chapter_1", "astro", "simple")
+dataset_path = Path("dataset") / "howtofit" / "chapter_1" / "astro" / "simple"
 
 """
 __Dataset Auto-Simulation__
@@ -117,7 +116,7 @@ __Dataset Auto-Simulation__
 If the dataset does not already exist on your system, it will be created by running the corresponding
 simulator script. This ensures that all example scripts can be run without manually simulating data first.
 """
-if not path.exists(dataset_path):
+if not Path(dataset_path).exists():
     import subprocess
     import sys
 
@@ -126,10 +125,10 @@ if not path.exists(dataset_path):
         check=True,
     )
 
-data = np.load(file=path.join(dataset_path, "data.npy"))
+data = np.load(file=Path(dataset_path) / "data.npy")
 plot_array(array=data, title="Image of Galaxy")
 
-noise_map = np.load(file=path.join(dataset_path, "noise_map.npy"))
+noise_map = np.load(file=Path(dataset_path) / "noise_map.npy")
 plot_array(array=noise_map, title="Noise Map of Galaxy")
 
 """
@@ -143,7 +142,7 @@ For example, when fitting the galaxy, we remove the edges of the image where the
 We load and plot the mask below to show you how it is applied to the data, and we will use it in 
 the `log_likelihood_function` below to ensure these regions are not fitted.
 """
-mask = np.load(file=path.join(dataset_path, "mask.npy"))
+mask = np.load(file=Path(dataset_path) / "mask.npy")
 plot_array(array=mask, title="Mask of Galaxy")
 
 """
@@ -160,7 +159,7 @@ two-dimensional array, which acts as a 2D convolution kernel.
 When fitting the data and in the `log_likelihood_function` below, the PSF is used to create the model data. This 
 demonstrates how an `Analysis` class can be extended to include additional steps in the model fitting process.
 """
-psf = np.load(file=path.join(dataset_path, "psf.npy"))
+psf = np.load(file=Path(dataset_path) / "psf.npy")
 plot_array(array=psf, title="Point Spread Function of Galaxy ?")
 
 """
@@ -174,7 +173,7 @@ resolution of our image data.
 This grid includes only (y,x) coordinates within the circular mask applied to the data, as we only need to perform 
 calculations within this masked region.
 """
-grid = np.load(file=path.join(dataset_path, "grid.npy"))
+grid = np.load(file=Path(dataset_path) / "grid.npy")
 
 plot_grid(
     grid=grid,
@@ -779,6 +778,7 @@ A value near 0.7 is expected, reflecting the elliptical shape typical of galaxie
 
 This illustrates why we perform model-fitting, we can take complex data and infer simple, interpretable properties
 from it which provide insight into the physical processes generating the data. This is the core goal of the scientific
+from pathlib import Path
 method and the use of models to explain observations.
 """
 print(result.info)
