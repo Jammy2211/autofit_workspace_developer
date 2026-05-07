@@ -17,11 +17,10 @@ This includes the default priors for the lens model, check it out!
 """
 
 import os
-from os import path
 from autoconf import conf
 
 cwd = os.getcwd()
-config_path = path.join(cwd, "projects", "cosmology", "config")
+config_path = Path(cwd) / "projects" / "cosmology" / "config"
 conf.instance.push(new_path=config_path)
 
 # %matplotlib inline
@@ -34,6 +33,7 @@ import autofit as af
 import src as cosmo
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
 """
 __Plot__
@@ -62,18 +62,18 @@ __Data__
 
 Now lets load and plot Hubble Space Telescope imaging data of the strong gravitational lens SDSSJ2303+1422.
 """
-dataset_path = path.join("projects", "cosmology", "dataset")
+dataset_path = Path("projects") / "cosmology" / "dataset"
 
-data = np.load(file=path.join(dataset_path, "data.npy"))
+data = np.load(file=Path(dataset_path) / "data.npy")
 plot_array(array=data, title="Image of Strong Lens SDSSJ2303+1422")
 
-noise_map = np.load(file=path.join(dataset_path, "noise_map.npy"))
+noise_map = np.load(file=Path(dataset_path) / "noise_map.npy")
 plot_array(array=noise_map, title="Noise Map of Strong Lens SDSSJ2303+1422")
 
-psf = np.load(file=path.join(dataset_path, "psf.npy"))
+psf = np.load(file=Path(dataset_path) / "psf.npy")
 plot_array(array=psf, title="Point Spread Function of Strong Lens SDSSJ2303+1422")
 
-grid = np.load(file=path.join(dataset_path, "grid.npy"))
+grid = np.load(file=Path(dataset_path) / "grid.npy")
 
 plot_grid(
     grid=grid,
@@ -257,7 +257,7 @@ longer run-times of the model-fit.
 """
 
 search = af.DynestyStatic(
-    path_prefix=path.join("projects", "cosmology"),
+    path_prefix=Path("projects") / "cosmology",
     name="multi_level",
     nlive=50,
     iterations_per_full_update=2500,

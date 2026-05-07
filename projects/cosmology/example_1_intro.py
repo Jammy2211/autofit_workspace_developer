@@ -79,7 +79,7 @@ import src as cosmo
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
-from os import path
+from pathlib import Path
 
 """
 __Plot__
@@ -124,12 +124,12 @@ not visible.
 In the strong lens image and noise map below, you can see this has already been performed, with the edge regions
 blank.
 """
-dataset_path = path.join("projects", "cosmology", "dataset")
+dataset_path = Path("projects") / "cosmology" / "dataset"
 
-data = np.load(file=path.join(dataset_path, "data.npy"))
+data = np.load(file=Path(dataset_path) / "data.npy")
 plot_array(array=data, title="Image of Strong Lens SDSSJ2303+1422")
 
-noise_map = np.load(file=path.join(dataset_path, "noise_map.npy"))
+noise_map = np.load(file=Path(dataset_path) / "noise_map.npy")
 plot_array(array=noise_map, title="Noise Map of Strong Lens SDSSJ2303+1422")
 
 """
@@ -150,7 +150,7 @@ When fitting the data below and in the `log_likelihood_function`, you'll see tha
 model data. This is an example of how an `Analysis` class may be extended to include additional steps in the model
 fitting procedure.
 """
-psf = np.load(file=path.join(dataset_path, "psf.npy"))
+psf = np.load(file=Path(dataset_path) / "psf.npy")
 plot_array(array=psf, title="Point Spread Function of Strong Lens SDSSJ2303+1422")
 
 
@@ -166,7 +166,7 @@ a pixel is 0.05, which corresponds to the resolution of our image `data`.
 This grid only contains (y,x) coordinates within the cricular mask that was applied to the data, as we only need to
 perform ray-tracing within this region.
 """
-grid = np.load(file=path.join(dataset_path, "grid.npy"))
+grid = np.load(file=Path(dataset_path) / "grid.npy")
 
 plot_grid(
     grid=grid,

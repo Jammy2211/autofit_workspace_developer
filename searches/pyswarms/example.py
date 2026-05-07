@@ -12,18 +12,18 @@ The search classes in this directory (globe.py, local.py) import from
 autofit's base classes and can be used as drop-in replacements.
 """
 import numpy as np
-from os import path
 
 from autoconf import conf
 
 # Register the config directory shipped with this repo so that
 # PySwarmsGlobal/Local can find their YAML defaults.
 workspace_path = path.dirname(path.dirname(path.dirname(path.abspath(__file__))))
-conf.instance.push(new_path=path.join(workspace_path, "config"))
+conf.instance.push(new_path=Path(workspace_path) / "config")
 
 from searches.pyswarms.globe import PySwarmsGlobal
 
 import autofit as af
+from pathlib import Path
 
 # --- Define a simple 1D Gaussian model ---
 
